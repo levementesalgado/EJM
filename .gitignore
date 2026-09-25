@@ -1,0 +1,31 @@
+# Rails
+backend/.bundle/
+backend/log/
+backend/tmp/
+backend/storage/
+backend/vendor/bundle/
+backend/.env
+
+# Rust
+rust-service/target/
+rust-service/Cargo.lock
+
+# Qt
+frontend/build/
+frontend/*.pro.user
+frontend/.qmake.stash
+
+# Database
+db/*.sqlite3
+db/*.sqlite3-journal
+db/backup/*.enc
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
