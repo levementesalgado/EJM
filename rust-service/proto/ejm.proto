@@ -1,0 +1,85 @@
+syntax = "proto3";
+
+package ejm;
+
+service ProspeccaoService {
+  rpc AnalisarDocumentos (AnalisarRequest) returns (AnalisarResponse);
+  rpc RastrearEmpresa (RastrearRequest) returns (RastrearResponse);
+  rpc GerarTags (TagsRequest) returns (TagsResponse);
+}
+
+service GraficoService {
+  rpc GerarDadosFinanceiros (DadosFinanceirosRequest) returns (DadosFinanceirosResponse);
+  rpc GerarDadosProjetos (DadosProjetosRequest) returns (DadosProjetosResponse);
+}
+
+message AnalisarRequest {
+  repeated string documentos = 1;
+  string cliente_id = 2;
+}
+
+message AnalisarResponse {
+  repeated string tags = 1;
+  string resumo = 2;
+  double confianca = 3;
+}
+
+message RastrearRequest {
+  string empresa_nome = 1;
+  string cnpj = 2;
+}
+
+message RastrearResponse {
+  string empresa_nome = 1;
+  repeated string noticias = 2;
+  string periodo_contrato = 3;
+  string status = 4;
+}
+
+message TagsRequest {
+  string texto = 1;
+  string tipo = 2;
+}
+
+message TagsResponse {
+  repeated string tags = 1;
+  map<string, double> scores = 2;
+}
+
+message DadosFinanceirosRequest {
+  int32 projeto_id = 1;
+  string periodo_inicio = 2;
+  string periodo_fim = 3;
+}
+
+message DadosFinanceirosResponse {
+  double total_entradas = 1;
+  double total_saidas = 2;
+  double lucro = 3;
+  repeated ItemFinanceiro itens = 4;
+}
+
+message ItemFinanceiro {
+  string descricao = 1;
+  double valor = 2;
+  string data = 3;
+}
+
+message DadosProjetosRequest {
+  string status = 1;
+  int32 ano = 2;
+}
+
+message DadosProjetosResponse {
+  int32 total_projetos = 1;
+  int32 projetos_ativos = 2;
+  int32 projetos_concluidos = 3;
+  repeated ProjetoResumo projetos = 4;
+}
+
+message ProjetoResumo {
+  int32 id = 1;
+  string titulo = 2;
+  string status = 3;
+  double valor = 4;
+}
