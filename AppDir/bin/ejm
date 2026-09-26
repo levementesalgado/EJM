@@ -1,0 +1,98 @@
+#!/bin/bash
+# EJM - Sistema de Gestão para Empresa Júnior
+# Launcher script para AppImage
+
+set -e
+
+APPDIR="$(dirname "$(readlink -f "$0")")/.."
+BACKEND_DIR="$APPDIR/app/backend"
+FRONTEND_BIN="$APPDIR/app/frontend/ejm-frontend"
+DATA_DIR="$HOME/.local/share/ejm"
+DB_FILE="$DATA_DIR/ejm.sqlite3"
+
+# Criar diretório de dados
+mkdir -p "$DATA_DIR"
+
+# Verificar Ruby
+if ! command -v ruby &> /dev/null; then
+    echo "Ruby não encontrado. Instalando..."
+    if [ -f "$APPDIR/app/ruby/bin/ruby" ]; then
+        export PATH="$APPDIR/app/ruby/bin:$PATH"
+    else
+        echo "ERRO: Ruby não encontrado. Instale ruby ou use a versão empacotada."
+        exit 1
+    fi
+fi
+
+# Configurar banco SQLite portável
+export RAILS_ENV=production
+export RAILS_MASTER_KEY="$(cat "$BACKEND_DIR/config/master.key" 2>/dev/null || echo '')"
+
+# Copiar database.yml SQLite se não existir
+if [ ! -f "$BACKEND_DIR/config/database.yml" ] || ! grep -q "sqlite3" "$BACKEND_DIR/config/database.yml" 2>/dev/null; then
+    cp "$BACKEND_DIR/config/database.portable.yml" "$BACKEND_DIR/config/database.yml"
+fi
+
+# Configurar caminho do banco
+sed -i "s|database:.*|database: $DB_FILE|g" "$BACKEND_DIR/config/database.yml" 2>/dev/null || true
+
+# Instalar gems se necessário
+if [ ! -d "$BACKEND_DIR/vendor/bundle" ] || [ ! -f "$BACKEND_DIR/Gemfile.lock" ]; then
+    echo "Instalando dependências do backend..."
+    cd "$BACKEND_DIR"
+    bundle install --deployment --without development test 2>/dev/null || bundle install
+fi
+
+# Criar banco de dados se não existir
+if [ ! -f "$DB_FILE" ]; then
+    echo "Criando banco de dados..."
+    cd "$BACKEND_DIR"
+    bundle exec rake db:create db:migrate db:seed 2>/dev/null || true
+fi
+
+# Iniciar backend (Puma)
+echo "Iniciando backend na porta 3000..."
+cd "$BACKEND_DIR"
+bundle exec puma -b tcp://127.0.0.1:3000 -d --pid /tmp/ejm-puma.pid 2>/dev/null || \
+bundle exec rails server -b 127.0.0.1 -p 3000 -d 2>/dev/null || true
+
+# Aguardar backend iniciar
+sleep 2
+
+# Verificar se backend está rodando
+if ! curl -s http://127.0.0.1:3000/up > /dev/null 2>&1; then
+    echo "Aguardando backend iniciar..."
+    for i in {1..10}; do
+        sleep 1
+        if curl -s http://127.0.0.1:3000/up > /dev/null 2>&1; then
+            break
+        fi
+    done
+fi
+
+# Iniciar frontend Qt
+echo "Iniciando frontend..."
+if [ -x "$FRONTEND_BIN" ]; then
+    "$FRONTEND_BIN" &
+    FRONTEND_PID=$!
+else
+    echo "ERRO: Frontend não encontrado em $FRONTEND_BIN"
+    exit 1
+fi
+
+# Função de cleanup
+cleanup() {
+    echo "Encerrando EJM..."
+    if [ -f /tmp/ejm-puma.pid ]; then
+        kill $(cat /tmp/ejm-puma.pid) 2>/dev/null || true
+        rm -f /tmp/ejm-puma.pid
+    fi
+    if [ -n "$FRONTEND_PID" ]; then
+        kill $FRONTEND_PID 2>/dev/null || true
+    fi
+}
+
+trap cleanup EXIT INT TERM
+
+# Aguardar frontend fechar
+wait $FRONTEND_PID 2>/dev/null || true

@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=EJM
+Comment=Sistema de Gestão para Empresa Júnior
+Exec=ejm
+Icon=ejm
+Categories=Office;
+Terminal=false
